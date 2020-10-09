@@ -60,7 +60,7 @@ namespace VMS.TPS
             {
                 // (image.ImagingOrientation.Equals("HeadFirstSupine") || image.ImagingOrientation.Equals("FeetFirstSupine"))
                 Image image = context.StructureSet.Image;
-                if (image.ImagingOrientation.Equals("HeadFirstSupine") || image.ImagingOrientation.Equals("FeetFirstSupine")) 
+                if (image.ImagingOrientation == PatientOrientation.HeadFirstSupine || image.ImagingOrientation == PatientOrientation.FeetFirstSupine ) 
                 {
                     var OrigoCheckResults = CheckResults.NotFound;
                     int origoLong = 0;
@@ -81,7 +81,7 @@ namespace VMS.TPS
             {
                 PlanSetup plan = context.PlanSetup;
                 Image image = plan.StructureSet.Image;
-                if (image.ImagingOrientation.Equals("HeadFirstSupine") || image.ImagingOrientation.Equals("FeetFirstSupine"))
+                if ((image.ImagingOrientation == PatientOrientation.HeadFirstSupine || image.ImagingOrientation == PatientOrientation.FeetFirstSupine) && (plan.TreatmentOrientation == PatientOrientation.HeadFirstSupine || plan.TreatmentOrientation == PatientOrientation.FeetFirstSupine))
                 {
                     int origoLong = 0;
 
@@ -981,7 +981,7 @@ namespace VMS.TPS
             debug += "Left side long:  " + fidusLongLeft.ToString("0.0") + "\t Right side long:  " + fidusLongRight.ToString("0.0") + "\n\n";
             debug += "Left side fidus:  " + numberOfFidusLeft + "\t Right side fidus:  " + numberOfFidusRight;
 
-            //MessageBox.Show(debug);
+            MessageBox.Show(debug);
             // Also need to check the long coordinate above and below (in z-dir) in case its a boundary case where the number of fidusles 
             // steps up. Only neccesary in case of large value for fidusLong or if a discrepancy between the number of fidusles found left and right,
             // or if the long value is not found. +/- 10 mm shift in z-dir is enough to avoid boundary condition 

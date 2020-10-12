@@ -1,4 +1,28 @@
-﻿
+﻿////////////////////////////////////////////////////////////////////////////////
+// 
+//  ESAPI V15.5 single plugin script to get SBF coordinates from plan
+//  
+//
+// Copyright (c) 2020 
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy 
+// of this software and associated documentation files (the "Software"), to deal 
+// in the Software without restriction, including without limitation the rights 
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell 
+// copies of the Software, and to permit persons to whom the Software is 
+// furnished to do so, subject to the following conditions:
+//
+//  The above copyright notice and this permission notice shall be included in 
+//  all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL 
+// THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN 
+// THE SOFTWARE.
+////////////////////////////////////////////////////////////////////////////////
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -86,13 +110,13 @@ namespace VMS.TPS
                     int origoLong = 0;
 
                     var OrigoCheckResults = CheckResults.NotFound;
-
-                    string checkSBRTOrigo = CheckUserOriginInSBRTFrame(image, ref OrigoCheckResults, ref origoLong);  // should really refactor this
-                    string checkSBRTiso = GetIsoCoordInSBRTFrame(plan, OrigoCheckResults, origoLong);
-                    string checkSBFsetup = GetSBFSetupCoord(plan.StructureSet, OrigoCheckResults, origoLong);
+                    string warningString = "Warning: SCRIPT NOT EVALUATED OR APPROVED FOR CLINICAL USE!\n\n";
+                    string checkSBRTOrigo = warningString + CheckUserOriginInSBRTFrame(image, ref OrigoCheckResults, ref origoLong);  // should really refactor this
+                    string checkSBRTiso = warningString + GetIsoCoordInSBRTFrame(plan, OrigoCheckResults, origoLong);
+                    string checkSBFsetup = warningString + GetSBFSetupCoord(plan.StructureSet, OrigoCheckResults, origoLong);
 
                     MessageBox.Show(checkSBRTOrigo, "User Origin Check");
-                    MessageBox.Show(checkSBRTiso, "Isocenter Check");
+                    MessageBox.Show(checkSBRTiso, "Isocenter Check on plan " + plan.Id);
                     MessageBox.Show(checkSBFsetup, "SBF set-up marker Check");
                     // TODO: possible to check 3 different points in space for agreement between measured and calcolated with delta
                 }
@@ -929,7 +953,7 @@ namespace VMS.TPS
             VVector leftFidusUpperEnd = leftTopFidusEnd;
             VVector rightFidusUpperEnd = rightTopFidusEnd;
 
-            leftFidusUpperEnd.x = GetMaxHUX(image, leftTopFidusStart, leftTopFidusEnd, searchRange, shortProfileLength * 2);                      // what is the 3 ?????????????????????????????????????
+            leftFidusUpperEnd.x = GetMaxHUX(image, leftTopFidusStart, leftTopFidusEnd, searchRange, shortProfileLength * 2);                      
             rightFidusUpperEnd.x = GetMaxHUX(image, rightTopFidusStart, rightTopFidusEnd, -searchRange, shortProfileLength * 2);
 
             debug += "LeftBox: \t\t" + coordBoxLeft.ToString("0.0") + "\n";
@@ -946,7 +970,7 @@ namespace VMS.TPS
             debug += "Left side long:  " + fidusLongLeft.ToString("0.0") + "\t Right side long:  " + fidusLongRight.ToString("0.0") + "\n\n";
             debug += "Left side fidus:  " + numberOfFidusLeft + "\t Right side fidus:  " + numberOfFidusRight;
 
-            MessageBox.Show(debug);
+            //MessageBox.Show(debug);
             // Also need to check the long coordinate above and below (in z-dir) in case its a boundary case where the number of fidusles 
             // steps up. Only neccesary in case of large value for fidusLong or if a discrepancy between the number of fidusles found left and right,
             // or if the long value is not found. +/- 10 mm shift in z-dir is enough to avoid boundary condition 

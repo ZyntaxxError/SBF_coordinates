@@ -724,8 +724,8 @@ namespace VMS.TPS
             sbrtSide.GradIndexForCoord = 2;                      // index of gradient position to return (zero based index), i.e. the start of the inner wall
 
             double[] coordBoxLat = new double[2];
-            coordBoxLat[0] = GetCoordinates(cooLeft, valHULeft, sbrtSide.GradientHUPerMm, sbrtSide.DistanceInMm, sbrtSide.PositionToleranceMm, sbrtSide.GradIndexForCoord);
-            coordBoxLat[1] = GetCoordinates(cooRight, valHURight, sbrtSide.GradientHUPerMm, sbrtSide.DistanceInMm, sbrtSide.PositionToleranceMm, sbrtSide.GradIndexForCoord);
+            coordBoxLat[0] = GetGradientCoordinates(cooLeft, valHULeft, sbrtSide.GradientHUPerMm, sbrtSide.DistanceInMm, sbrtSide.PositionToleranceMm, sbrtSide.GradIndexForCoord);
+            coordBoxLat[1] = GetGradientCoordinates(cooRight, valHURight, sbrtSide.GradientHUPerMm, sbrtSide.DistanceInMm, sbrtSide.PositionToleranceMm, sbrtSide.GradIndexForCoord);
             //coordBoxLat[2] = ((coordBoxRight + coordBoxLeft) / 2);
             if (coordBoxLat[0] != 0 && coordBoxLat[1] != 0 && Math.Abs(coordBoxLat[1] - coordBoxLat[0]) < expectedWidth + widthTolerans && Math.Abs(coordBoxLat[1] - coordBoxLat[0]) > expectedWidth - widthTolerans)
             {
@@ -781,6 +781,7 @@ namespace VMS.TPS
                 var profY = image.GetImageProfile(bottomProfileStart, bottomProfileEnd, new double[samplesY]);
                 // Imageprofile gets a VVector back, take the coordinates and respective HU and put them in two Lists of double, might be better ways of doing this...
                 tries++;
+
                 for (int i = 0; i < samplesY; i++)
                 {
                     valHU.Add(profY[i].Value);
@@ -788,7 +789,7 @@ namespace VMS.TPS
                 }
 
                 // Get the coordinate (dicom) that represents inner bottom of SBRT frame 
-                coordBoxBottom = GetCoordinates(coo, valHU, sbrt.GradientHUPerMm, sbrt.DistanceInMm, sbrt.PositionToleranceMm, sbrt.GradIndexForCoord);
+                coordBoxBottom = GetGradientCoordinates(coo, valHU, sbrt.GradientHUPerMm, sbrt.DistanceInMm, sbrt.PositionToleranceMm, sbrt.GradIndexForCoord);
                 // in the SBRT frame; VRT 0, which we are looking for, is approximately 1 mm above this gradient position, add 1 mm before returning
                 if (coordBoxBottom != 0)
                 {
@@ -812,6 +813,110 @@ namespace VMS.TPS
                 }
             }
             return (int)Math.Round(coordBoxBottom);
+        }
+
+        private double[,] VoiImageProfile(Image image, VVector start, VVector stop, int resolution, char dir)
+        {
+            int iX = Math.Abs((int)Math.Round((stop.x - start.x) / resolution));
+            int iY = Math.Abs((int)Math.Round((stop.y - start.y) / resolution));
+            int iZ = Math.Abs((int)Math.Round((stop.z - start.z) / resolution));
+            int widthSamples = 0;
+            int widthDir = 0;
+            int heightSamples = 0;
+            int heightDir = 0;
+            int profileSamples = 0;
+            int xDir = (int)(Math.Round(stop.x - start.x) / Math.Abs(Math.Round(stop.x - start.x)));
+            int yDir = (int)(Math.Round(stop.y - start.y) / Math.Abs(Math.Round(stop.y - start.y)));
+            int zDir = (int)(Math.Round(stop.z - start.z) / Math.Abs(Math.Round(stop.z - start.z)));
+
+            switch (dir)
+            {
+                case 'x':
+                    widthSamples = iY;
+                    widthDir = yDir;
+                    heightSamples = iZ;
+                    heightDir = zDir;
+                    profileSamples = iX;
+                    stop.y = start.y;
+                    stop.z = start.z;
+                    break;
+                case 'y':
+                    widthSamples = iX;
+                    widthDir = xDir;
+                    heightSamples = iZ;
+                    heightDir = zDir;
+                    profileSamples = iY;
+                    stop.x = start.x;
+                    stop.z = start.z;
+                    break;
+                case 'z':
+                    widthSamples = iX;
+                    widthDir = xDir;
+                    heightSamples = iY;
+                    heightDir = yDir;
+                    profileSamples = iZ;
+                    stop.x = start.x;
+                    stop.y = start.y;
+                    break;
+                default:
+                    break;
+            }
+            double[,] values = new double[profileSamples, profileSamples];
+
+            for (int h = 0; h < heightSamples; h++)
+            {
+
+                for (int w = 0; w < widthSamples; w++)
+                {
+
+                    ImageProfile iProfile = image.GetImageProfile(start, stop, new double[profileSamples]);
+
+                    for (int i = 0; i < profileSamples; i++)
+                    {
+                        values[1, i] += iProfile[i].Value / (widthSamples * heightSamples);
+                    }
+
+                    if (dir.Equals('y') || dir.Equals('z'))
+                    {
+                        start.x += resolution * widthDir;
+                        stop.x += resolution * widthDir;
+                    }
+                    else
+                    {
+                        start.y += resolution * widthDir;
+                        stop.y += resolution * widthDir;
+                    }
+                }
+
+                if (dir.Equals('x') || dir.Equals('y'))
+                {
+                    start.z += resolution * heightDir;
+                    stop.z += resolution * heightDir;
+                }
+                else
+                {
+                    start.y += resolution * heightDir;
+                    stop.y += resolution * heightDir;
+                }
+            }
+            ImageProfile Profile = image.GetImageProfile(start, stop, new double[profileSamples]);
+
+            for (int i = 0; i < profileSamples; i++)
+            {
+                switch (dir)
+                {
+                    case 'x':
+                        values[0, i] += Profile[i].Position.x;
+                        break;
+                    case 'y':
+                        values[0, i] += Profile[i].Position.y;
+                        break;
+                    case 'z':
+                        values[0, i] += Profile[i].Position.z;
+                        break;
+                }
+            }
+            return values;
         }
 
         // Get profiles in x direction, left and right side and determine center of box in the plane determined by dicomCoord
@@ -867,8 +972,8 @@ namespace VMS.TPS
             sbrtSide.GradIndexForCoord = 2;                      // index of gradient position to return (zero based index), i.e. the start of the inner wall
 
             double[] coordBoxLat = new double[2];
-            coordBoxLat[0] = GetCoordinates(cooLeft, valHULeft, sbrtSide.GradientHUPerMm, sbrtSide.DistanceInMm, sbrtSide.PositionToleranceMm, sbrtSide.GradIndexForCoord);
-            coordBoxLat[1] = GetCoordinates(cooRight, valHURight, sbrtSide.GradientHUPerMm, sbrtSide.DistanceInMm, sbrtSide.PositionToleranceMm, sbrtSide.GradIndexForCoord);
+            coordBoxLat[0] = GetGradientCoordinates(cooLeft, valHULeft, sbrtSide.GradientHUPerMm, sbrtSide.DistanceInMm, sbrtSide.PositionToleranceMm, sbrtSide.GradIndexForCoord);
+            coordBoxLat[1] = GetGradientCoordinates(cooRight, valHURight, sbrtSide.GradientHUPerMm, sbrtSide.DistanceInMm, sbrtSide.PositionToleranceMm, sbrtSide.GradIndexForCoord);
 
             return coordBoxLat;
         }
@@ -1080,7 +1185,6 @@ namespace VMS.TPS
         }
 
 
-
         public int GetNumberOfFidus(Image image, VVector fidusStart, VVector fidusEnd, int samples)
         {
             List<double> valHU = new List<double>();
@@ -1100,7 +1204,7 @@ namespace VMS.TPS
             fid.PositionToleranceMm = new List<int>() { 0, 2 };     // tolerance for the gradient position, parameter to optimize depending probably of resolution of profile
             fid.GradIndexForCoord = 0;                              // index of gradient position to return, in this case used only as a counter for number of fidusles
 
-            findGradientResult = GetCoordinates(coord, valHU, fid.GradientHUPerMm, fid.DistanceInMm, fid.PositionToleranceMm, fid.GradIndexForCoord);
+            findGradientResult = GetGradientCoordinates(coord, valHU, fid.GradientHUPerMm, fid.DistanceInMm, fid.PositionToleranceMm, fid.GradIndexForCoord);
             // keep adding gradient pattern until no more fidusles found
             while (findGradientResult != 0.0)
             {
@@ -1111,10 +1215,12 @@ namespace VMS.TPS
                 fid.GradientHUPerMm.Add(-100);
                 fid.PositionToleranceMm.Add(2);
                 fid.GradIndexForCoord++;
-                findGradientResult = GetCoordinates(coord, valHU, fid.GradientHUPerMm, fid.DistanceInMm, fid.PositionToleranceMm, fid.GradIndexForCoord);
+                findGradientResult = GetGradientCoordinates(coord, valHU, fid.GradientHUPerMm, fid.DistanceInMm, fid.PositionToleranceMm, fid.GradIndexForCoord);
             }
             return fid.GradIndexForCoord;
         }
+
+
 
 
         public double GetLongFidus(Image image, VVector fidusStart, VVector fidusEnd, int samples)
@@ -1148,16 +1254,16 @@ namespace VMS.TPS
 
             // Finding position of the gradient start is not enough since the long fidusle is diagonal and also changes width depending of the resolution of the image in z-dir, 
             // have to take the mean position before and after.
-            double findFirstFidusStart = GetCoordinates(coord, valHU, fid.GradientHUPerMm, fid.DistanceInMm, fid.PositionToleranceMm, fid.GradIndexForCoord);
+            double findFirstFidusStart = GetGradientCoordinates(coord, valHU, fid.GradientHUPerMm, fid.DistanceInMm, fid.PositionToleranceMm, fid.GradIndexForCoord);
             fid.GradIndexForCoord = 1;
-            double findFirstFidusEnd = GetCoordinates(coord, valHU, fid.GradientHUPerMm, fid.DistanceInMm, fid.PositionToleranceMm, fid.GradIndexForCoord);
+            double findFirstFidusEnd = GetGradientCoordinates(coord, valHU, fid.GradientHUPerMm, fid.DistanceInMm, fid.PositionToleranceMm, fid.GradIndexForCoord);
             findFirstFidus = (findFirstFidusStart + findFirstFidusEnd) / 2;
             //Find position of second fidus (diagonal)
 
             fid.GradIndexForCoord = 2;
-            double findSecondFidusStart = GetCoordinates(coord, valHU, fid.GradientHUPerMm, fid.DistanceInMm, fid.PositionToleranceMm, fid.GradIndexForCoord);
+            double findSecondFidusStart = GetGradientCoordinates(coord, valHU, fid.GradientHUPerMm, fid.DistanceInMm, fid.PositionToleranceMm, fid.GradIndexForCoord);
             fid.GradIndexForCoord = 3;
-            double findSecondFidusEnd = GetCoordinates(coord, valHU, fid.GradientHUPerMm, fid.DistanceInMm, fid.PositionToleranceMm, fid.GradIndexForCoord);
+            double findSecondFidusEnd = GetGradientCoordinates(coord, valHU, fid.GradientHUPerMm, fid.DistanceInMm, fid.PositionToleranceMm, fid.GradIndexForCoord);
             findSecondFidus = (findSecondFidusStart + findSecondFidusEnd) / 2;
 
             return Math.Abs(findSecondFidus - findFirstFidus);
@@ -1165,16 +1271,19 @@ namespace VMS.TPS
 
 
 
+
+
+
         /// <summary>
-        /// getCoordinates gives the Dicom-coordinates of a gradient 
+        /// gives the Dicom-coordinates of a gradient 
         /// </summary>
-        /// <param name="coord"> 1D coordinates of a profile</param>
-        /// <param name="valueHU"> HU-valus of the profile</param>
-        /// <param name="hUPerMm"> Gradient to search for in HU/mm with sign indicating direction</param>
-        /// <param name="distMm"> Distance in mm to the next gradient</param>
-        /// <param name="posTolMm"> Tolerance of position of found gradient in mm</param>
+        /// <param name="coord"> 1D coordinates of profile in mm</param>
+        /// <param name="val"> values of the profile</param>
+        /// <param name="valPermm"> Gradient to search for in value/mm with sign indicating direction</param>
+        /// <param name="dist"> Distance in mm to the next gradient</param>
+        /// <param name="posTolerance"> Tolerance of position of found gradient in mm</param>
         /// <returns></returns>
-        public double GetCoordinates(List<double> coord, List<double> valueHU, List<int> hUPerMm, List<double> distMm, List<int> posTolMm, int indexToReturn)
+        public double GetGradientCoordinates(List<double> coord, List<double> val, List<int> valPermm, List<double> dist, List<int> posTolerance, int indexToReturn)
         {
             string debug = "";
             double[] grad = new double[coord.Count - 1];
@@ -1188,7 +1297,7 @@ namespace VMS.TPS
             for (int i = 0; i < coord.Count - 2; i++)
             {
                 pos[i] = (coord[i] + coord[i + 1]) / 2;
-                grad[i] = (valueHU[i + 1] - valueHU[i]) / Math.Abs(coord[i + 1] - coord[i]);
+                grad[i] = (val[i + 1] - val[i]) / Math.Abs(coord[i + 1] - coord[i]);
             }
 
             List<double> gradPosition = new List<double>();
@@ -1196,19 +1305,19 @@ namespace VMS.TPS
 
             for (int i = 0; i < pos.Count(); i++)
             {
-                if (index == hUPerMm.Count())                        //break if last condition passed 
+                if (index == valPermm.Count())                        //break if last condition passed 
                 {
                     break;
                 }
                 // if gradient larger than given gradient and in the same direction
                 //if (Math.Abs((valueHU[i + 1] - valueHU[i]) / Math.Abs(coord[i + 1] - coord[i])) > (Math.Abs(hUPerMm[index])) && SameSign(grad[i], hUPerMm[index]))
-                if (Math.Abs(grad[i]) > Math.Abs(hUPerMm[index]) && SameSign(grad[i], hUPerMm[index]))
+                if (Math.Abs(grad[i]) > Math.Abs(valPermm[index]) && SameSign(grad[i], valPermm[index]))
                 {
                     gradientStart = pos[i];
                     gradientEnd = pos[i];
 
                     //Keep stepping up while gradient larger than given huPerMm
-                    while (Math.Abs(grad[i]) > (Math.Abs(hUPerMm[index])) && SameSign(grad[i], hUPerMm[index]) && i < coord.Count - 2)
+                    while (Math.Abs(grad[i]) > (Math.Abs(valPermm[index])) && SameSign(grad[i], valPermm[index]) && i < coord.Count - 2)
                     {
                         i++;
                         gradientEnd = pos[i];
@@ -1225,21 +1334,21 @@ namespace VMS.TPS
                         index++;
                     }
                     // if gradient found before expected position (outside tolerance), keep looking
-                    else if (Math.Abs(gradientMiddle - gradPosition[index - 1]) < distMm[index] - posTolMm[index] && i < pos.Count() - 2)
+                    else if (Math.Abs(gradientMiddle - gradPosition[index - 1]) < dist[index] - posTolerance[index] && i < pos.Count() - 2)
                     {
                         i++;
                         //MessageBox.Show(Math.Abs(gradientMiddle - gradPosition[index - 1]).ToString("0.0"));
                     }
                     // if next gradient not found within tolerance distance, means that the first gradient is probably wrong, reset index
-                    else if ((Math.Abs(gradientMiddle - gradPosition[index - 1]) > (Math.Abs(distMm[index]) + posTolMm[index])))
+                    else if ((Math.Abs(gradientMiddle - gradPosition[index - 1]) > (Math.Abs(dist[index]) + posTolerance[index])))
                     {
-                        debug += "Fail " + (Math.Abs(gradientMiddle - gradPosition[index - 1])).ToString("0.0") + "\t" + (distMm[index] + posTolMm[index]).ToString("0.0") + "\n";
+                        debug += "Fail " + (Math.Abs(gradientMiddle - gradPosition[index - 1])).ToString("0.0") + "\t" + (dist[index] + posTolerance[index]).ToString("0.0") + "\n";
                         gradPosition.Clear();
                         index = 0;
                         i = indexToReturnToInCaseOfFail;
                     }
                     //  compare the distance between the gradients to the criteria given, step up index and continue if within tolerance
-                    else if ((Math.Abs(gradientMiddle - gradPosition[index - 1]) > (distMm[index] - posTolMm[index])) && (Math.Abs(gradientMiddle - gradPosition[index - 1]) < (distMm[index] + posTolMm[index])))
+                    else if ((Math.Abs(gradientMiddle - gradPosition[index - 1]) > (dist[index] - posTolerance[index])) && (Math.Abs(gradientMiddle - gradPosition[index - 1]) < (dist[index] + posTolerance[index])))
                     {
                         gradPosition.Add(gradientMiddle);
                         index++;
@@ -1260,7 +1369,7 @@ namespace VMS.TPS
                     }
                 }
             }
-            if (index == hUPerMm.Count())
+            if (index == valPermm.Count())
             {
                 return gradPosition[indexToReturn];
             }

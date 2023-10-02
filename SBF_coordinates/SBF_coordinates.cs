@@ -422,13 +422,13 @@ namespace VMS.TPS
         private string GetSBFSetupCoord(StructureSet ss, CheckResults origoCheckResults, int origoLong)
         {
             string setupSBFResults = "";
-            string searchForStructure = "zSBF_setup"; // there can be only one with the unique ID, Eclipse is also case sensitive
+            string searchForStructure = "z_SBF_setup"; // there can be only one with the unique ID, Eclipse is also case sensitive
 
-            Structure structSBFMarker = ss.Structures.Where(s => s.Id == searchForStructure).SingleOrDefault();
+            Structure structSBFMarker = ss.Structures.Where(s => s.Id.ToUpper() == searchForStructure.ToUpper()).SingleOrDefault();
 
             if (structSBFMarker == null)
             {
-                setupSBFResults = "* No SBF marker or structure with ID 'zSBF_setup' found. \n";
+                setupSBFResults = "* No SBF marker or structure with ID '" + searchForStructure + "' found. \n";
             }
             else
             {
